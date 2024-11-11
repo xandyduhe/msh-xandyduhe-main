@@ -1,0 +1,6 @@
+ls -la /mpcs/; cd .. & echo hello
+
+
+
+sleep 40;
+exit

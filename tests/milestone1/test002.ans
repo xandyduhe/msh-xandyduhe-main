@@ -1,0 +1,14 @@
+msh> argv[0]=ls
+argv[1]=-la
+argv[2]=/mpcs/
+argc=3
+argv[0]=cd
+argv[1]=..
+argc=2
+argv[0]=echo
+argv[1]=hello
+argc=2
+msh> msh> msh> msh> argv[0]=sleep
+argv[1]=40
+argc=2
+msh> 

@@ -1,0 +1,4 @@
+msh> error: reached the maximum line limit
+msh> argv[0]=ls
+argc=1
+msh> 

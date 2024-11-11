@@ -1,0 +1,7 @@
+msh> argv[0]=less
+argv[1]=file.txt
+argc=2
+argv[0]=cat
+argv[1]=file
+argc=2
+msh> 
