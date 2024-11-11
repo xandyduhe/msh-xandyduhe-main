@@ -1,10 +1,10 @@
+// teste
+
 #include "shell.h"
 #include <stdlib.h> 
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
-
-msh_t *shell = NULL; 
 
 // Task 1: alloc_shell - Allocates and initializes the shell state
 msh_t *alloc_shell(int max_jobs, int max_line, int max_history) {
@@ -27,72 +27,69 @@ msh_t *alloc_shell(int max_jobs, int max_line, int max_history) {
 // Task 1: parse_tok - Parses commands separated by & or ;
 static char *current_line = NULL;
 
+
+
+
+
 char *parse_tok(char *line, int *job_type) {
-    // If a new line is given, reset current_line
+    // Debug output to check inputs
+    printf("Entering parse_tok with line='%s', current_line='%s'\n", line ? line : "NULL", current_line ? current_line : "NULL");
+
+    // Check that job_type is not NULL
+    if (job_type == NULL) {
+        printf("Error: job_type is NULL\n");
+        return NULL;
+    }
+
+    // Reset current_line if a new line is provided
     if (line != NULL) {
         current_line = line;
     }
 
-    // If no more tokens, return NULL
-    if (current_line == NULL) {
+    // If current_line is NULL or empty, indicate no more commands
+    if (current_line == NULL || *current_line == '\0') {
         *job_type = -1;
+        printf("No more tokens to parse. Exiting parse_tok.\n");
         return NULL;
     }
 
-    // Find the next delimiter
+    // Find the next delimiter in the current line
     char *delimiter_pos = strpbrk(current_line, "&;");
     char *command_start = current_line;
 
-    // Determine job type based on delimiter
     if (delimiter_pos != NULL) {
         *job_type = (*delimiter_pos == '&') ? 0 : 1;
-        *delimiter_pos = '\0';  // Null-terminate the command
-        current_line = delimiter_pos + 1; // Move past delimiter
+        *delimiter_pos = '\0';  // Null-terminate at delimiter
+        current_line = delimiter_pos + 1; // Move to the next part of the line
     } else {
-        *job_type = 1; // Default to foreground job if no delimiter
+        *job_type = 1; // Default to foreground job if no delimiter found
         current_line = NULL; // No more commands to parse
     }
+
+    // Trim trailing whitespace only
+    char *end = command_start + strlen(command_start) - 1;
+    while (end > command_start && (*end == ' ' || *end == '\t')) {
+        *end-- = '\0';
+    }
+
+    // If the command is empty after trimming, continue to the next token
+    if (*command_start == '\0') {
+        return parse_tok(NULL, job_type);
+    }
+
+    // Debug output to show the result
+    printf("Returning command='%s', job_type=%d, remaining line='%s'\n",
+           command_start, *job_type, current_line ? current_line : "NULL");
 
     return command_start;
 }
 
-// Task 1: separate_args - Separates a command line into arguments
-char **separate_args(char *line, int *argc, bool *is_builtin) {
-    if (line == NULL || strlen(line) == 0) {
-        *argc = 0;
-        return NULL;
-    }
 
-    // Count words in the line
-    int arg_count = 0;
-    char *token = strtok(line, " \t\n");
-    while (token != NULL) {
-        arg_count++;
-        token = strtok(NULL, " \t\n");
-    }
 
-    // Allocate memory for arguments array
-    char **argv = (char **)malloc((arg_count + 1) * sizeof(char *));
-    if (!argv) {
-        *argc = 0;
-        return NULL;
-    }
 
-    // Split line into arguments and store in argv
-    *argc = 0;
-    token = strtok(line, " \t\n");
-    while (token != NULL) {
-        argv[*argc] = strdup(token); // Duplicate token to store
-        (*argc)++;
-        token = strtok(NULL, " \t\n");
-    }
-    argv[*argc] = NULL; // Null-terminate
 
-    // Determine if the command is a built-in command (placeholder logic)
-    *is_builtin = false; // For now, just set to false
 
-    return argv;
-}
+
 
 // Task 1: evaluate - Executes the provided command line string
 int evaluate(msh_t *shell, char *line) {
@@ -124,6 +121,13 @@ int evaluate(msh_t *shell, char *line) {
     }
 
     return 0; // Return 0 to indicate shell should not exit
+}
+
+char **separate_args(char *line, int *argc, bool *is_builtin) {
+    // Stub implementation to satisfy the linker
+    *argc = 0;
+    *is_builtin = false;
+    return NULL;
 }
 
 // Task 1: exit_shell - Deallocates the shell state memory
