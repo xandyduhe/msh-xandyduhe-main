@@ -27,7 +27,7 @@ msh_t *alloc_shell(int max_jobs, int max_line, int max_history) {
 static char *current_line = NULL;
 
 // check if string has ONLY whitespace
-int is_whitespace_only(const char *str) {
+int white_space(const char *str) {
     while (*str) {
         if (!isspace((unsigned char)*str)) return 0;
         str++;
@@ -52,7 +52,7 @@ char *parse_tok(char *line, int *job_type) {
     char *delimiter_pos = strpbrk(current_line, "&;");
 
     if (delimiter_pos) {
-        // determin job type 
+        // determin job  
         *job_type = (*delimiter_pos == '&') ? 0 : 1;
 
         *delimiter_pos = '\0';
@@ -66,13 +66,11 @@ char *parse_tok(char *line, int *job_type) {
     }
 
     // skip whitespace commands
-    if (is_whitespace_only(next_job)) {
+    if (white_space(next_job)) {
         return parse_tok(NULL, job_type);  
     }
 
     return next_job;
-}
-
 
 // executes command 
 int evaluate(msh_t *shell, char *line) {
