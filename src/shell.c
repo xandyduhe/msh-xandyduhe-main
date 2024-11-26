@@ -6,21 +6,28 @@
 #include <stdbool.h>
 #include <ctype.h> // issue with parsing and whitespace 
 
+msh_t *shell = NULL;
+
 //  initializes shell 
 msh_t *alloc_shell(int max_jobs, int max_line, int max_history) {
+    const int MAX_LINE = 1024;
+    const int MAX_JOBS = 16;
+    const int MAX_HISTORY = 10;
+
+    if (max_jobs == 0) max_jobs = MAX_JOBS;
+    if (max_line == 0) max_line = MAX_LINE;
+    if (max_history == 0) max_history = MAX_HISTORY;
 
     // allocate memory for shell 
-    msh_t *new_shell = (msh_t *)malloc(sizeof(msh_t));
-    if (!new_shell) {
-        return NULL; 
-    }
+    msh_t *shell_state = malloc(sizeof(msh_t));
+    if (!shell_state) return NULL;
 
     // limits
-    new_shell->max_jobs = (max_jobs > 0) ? max_jobs : 16;
-    new_shell->max_line = (max_line > 0) ? max_line : 1024;
-    new_shell->max_history = (max_history > 0) ? max_history : 10;
+    shell_state->max_jobs = max_jobs;
+    shell_state->max_line = max_line;
+    shell_state->max_history = max_history;
 
-    return new_shell;
+    return shell_state;
 }
 
 // parses commands with &, ;
@@ -35,80 +42,106 @@ int white_space(const char *str) {
     return 1;
 }
 
-char *parse_tok(char *line, int *job_type) {
-    static char *current_line = NULL;
 
-    if (line != NULL) {
-        current_line = line;
-        //printf("new line: '%s'\n", line);  
-    }
-    if (current_line == NULL || *current_line == '\0') {
+char *parse_tok(char *line, int *job_type) {
+    static char *current = NULL;
+
+    if (line != NULL) current = line;
+
+    if (!current || *current == '\0') {
         *job_type = -1;
         return NULL;
     }
 
-    // find delimiter 
-    char *next_job = current_line;
-    char *delimiter_pos = strpbrk(current_line, "&;");
+    // Skip leading delimiters and whitespace
+    while (*current == ' ' || *current == ';' || *current == '&') current++;
 
-    if (delimiter_pos) {
-        // determin job  
-        *job_type = (*delimiter_pos == '&') ? 0 : 1;
+    if (*current == '\0') {
+        *job_type = -1;
+        return NULL;
+    }
 
-        *delimiter_pos = '\0';
-        current_line = delimiter_pos + 1;
-        //printf("delititer, cmd: '%s', job: %d\n", next_job, *job_type);  
+    char *start = current;
+    while (*current && *current != ';' && *current != '&') current++;
+
+    if (*current == ';') {
+        *job_type = 1; // Foreground job
+        *current++ = '\0';
+    } else if (*current == '&') {
+        *job_type = 0; // Background job
+        *current++ = '\0';
     } else {
-        // no more delimiters
-        *job_type = 1;  // foreground 
-        current_line = NULL;
-        //printf("last cmd: '%s', job: %d\n", next_job, *job_type);  
+        *job_type = 1; // Treat as foreground job
     }
 
-    // skip whitespace commands
-    if (white_space(next_job)) {
-        return parse_tok(NULL, job_type);  
+    return start;
+}
+
+
+
+char **separate_args(char *line, int *argc, bool *is_builtin) {
+    if (!line || !*line) {
+        *argc = 0;
+        return NULL;
     }
 
-    return next_job;
+    int capacity = 10;
+    char **argv = malloc(capacity * sizeof(char *));
+    if (!argv) return NULL;
+
+    *argc = 0;
+    char *token = strtok(line, " \t");
+    while (token) {
+        if (*argc >= capacity) {
+            capacity *= 2;
+            argv = realloc(argv, capacity * sizeof(char *));
+            if (!argv) return NULL;
+        }
+        argv[(*argc)++] = token;
+        token = strtok(NULL, " \t");
+    }
+
+    argv[*argc] = NULL;
+    *is_builtin = false; 
+    return argv;
+}
+
+
+
 
 // executes command 
 int evaluate(msh_t *shell, char *line) {
+    // Trim leading and trailing whitespace
+    while (*line == ' ' || *line == '\t') line++;
+    if (*line == '\0') return 0; // Ignore empty input
+
     if (strlen(line) > shell->max_line) {
-        printf("error: max line limit\n");
+        fprintf(stderr, "error: reached the maximum line limit\n");
         return 0;
     }
 
     int job_type;
-    char *command = parse_tok(line, &job_type);
-    while (command != NULL) {
+    char *job = parse_tok(line, &job_type);
+    while (job) {
         int argc;
         bool is_builtin;
-        char **argv = separate_args(command, &argc, &is_builtin);
+        char **argv = separate_args(job, &argc, &is_builtin);
 
-        // Print each argument
-        for (int i = 0; i < argc; i++) {
-            printf("argv[%d]=%s\n", i, argv[i]);
+        if (argv) {
+            for (int i = 0; i < argc; i++) {
+                printf("argv[%d]=%s\n", i, argv[i]);
+            }
+            printf("argc=%d\n", argc);
+            free(argv);
         }
-        printf("argc=%d\n", argc);
 
-        // Free the argument array
-        for (int i = 0; i < argc; i++) {
-            free(argv[i]);
-        }
-        free(argv);
-
-        command = parse_tok(NULL, &job_type);
+        job = parse_tok(NULL, &job_type);
     }
 
-    return 0; 
+    return 0;
 }
 
-char **separate_args(char *line, int *argc, bool *is_builtin) {
-    *argc = 0;
-    *is_builtin = false;
-    return NULL;
-}
+
 
 // free shell memory
 void exit_shell(msh_t *shell) {

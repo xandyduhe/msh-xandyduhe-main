@@ -65,6 +65,9 @@ char **separate_args(char *line, int *argc, bool *is_builtin);
 */
 int evaluate(msh_t *shell, char *line);
 
+//add whitespace declaration 
+int white_space(const char *str); // Add this declaration
+
 /*
 * exit_shell - Closes down the shell by deallocating the shell state.
 *
