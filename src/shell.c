@@ -42,37 +42,60 @@ int white_space(const char *str) {
     return 1;
 }
 
-
 char *parse_tok(char *line, int *job_type) {
     static char *current = NULL;
 
-    if (line != NULL) current = line;
+    // Initialize the static pointer
+    if (line != NULL) {
+        current = line;
+    }
 
+    // If no more commands to parse, return NULL
     if (!current || *current == '\0') {
         *job_type = -1;
         return NULL;
     }
 
-    // Skip leading delimiters and whitespace
-    while (*current == ' ' || *current == ';' || *current == '&') current++;
+    // Skip over leading whitespace (but preserve internal whitespace)
+    char *start = current;
+    while (*start && isspace((unsigned char)*start)) {
+        start++;
+    }
 
-    if (*current == '\0') {
+    if (*start == '\0') { // End of the line
         *job_type = -1;
         return NULL;
     }
 
-    char *start = current;
-    while (*current && *current != ';' && *current != '&') current++;
-
-    if (*current == ';') {
-        *job_type = 1; // Foreground job
-        *current++ = '\0';
-    } else if (*current == '&') {
-        *job_type = 0; // Background job
-        *current++ = '\0';
-    } else {
-        *job_type = 1; // Treat as foreground job
+    // Find the end of the job
+    char *end = start;
+    while (*end && *end != ';' && *end != '&') {
+        end++;
     }
+
+    // Save the delimiter (if any)
+    char delimiter = *end;
+    if (delimiter == ';') {
+        *job_type = 1; // Foreground job
+    } else if (delimiter == '&') {
+        *job_type = 0; // Background job
+    } else {
+        *job_type = 1; // Default to foreground job
+    }
+
+    // Null-terminate the current job and advance the pointer
+    if (*end) {
+        *end++ = '\0';
+    }
+
+    // Trim trailing whitespace (for this specific job)
+    char *trim_end = end - 2; // Move one step back to the last valid character
+    while (trim_end > start && isspace((unsigned char)*trim_end)) {
+        *trim_end-- = '\0';
+    }
+
+    // Update the static pointer for the next call
+    current = end;
 
     return start;
 }

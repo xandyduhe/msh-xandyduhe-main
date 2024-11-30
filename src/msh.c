@@ -1,57 +1,79 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <getopt.h>
 #include "shell.h"
 
-int main(int argc, char **argv) {
-    int max_jobs = 0, max_line = 0, max_history = 0;
-
-    // Process command-line arguments
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-j") == 0 && i + 1 < argc) max_jobs = atoi(argv[++i]);
-        else if (strcmp(argv[i], "-l") == 0 && i + 1 < argc) max_line = atoi(argv[++i]);
-        else if (strcmp(argv[i], "-s") == 0 && i + 1 < argc) max_history = atoi(argv[++i]);
-        else {
-            fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
-            return 1;
+// Parse command-line arguments
+void parse_args(int argc, char *argv[], int *max_jobs, int *max_line, int *max_history) {
+    int opt;
+    while ((opt = getopt(argc, argv, "s:j:l:")) != -1) {
+        switch (opt) {
+            case 's':
+                if (sscanf(optarg, "%d", max_history) != 1 || *max_history <= 0) {
+                    fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
+                    exit(1);
+                }
+                break;
+            case 'j':
+                if (sscanf(optarg, "%d", max_jobs) != 1 || *max_jobs <= 0) {
+                    fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
+                    exit(1);
+                }
+                break;
+            case 'l':
+                if (sscanf(optarg, "%d", max_line) != 1 || *max_line <= 0) {
+                    fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
+                    exit(1);
+                }
+                break;
+            default:
+                fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
+                exit(1);
         }
     }
+}
 
-    shell = alloc_shell(max_jobs, max_line, max_history);
-    if (!shell) {
-        fprintf(stderr, "Failed to allocate shell state\n");
-        return 1;
-    }
-
+// Interactive REPL loop
+void repl_loop(msh_t *shell) {
     char *line = NULL;
     size_t len = 0;
 
     while (1) {
-        // Print the prompt
         printf("msh> ");
-        if (getline(&line, &len, stdin) == -1) break; // Handle EOF
+        ssize_t nread = getline(&line, &len, stdin);
+        if (nread == -1) {
+            free(line);
+            break; // EOF or error
+        }
 
-        // Trim and check for empty input
-        char *trimmed = line;
-        while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
-        if (*trimmed == '\0') continue; // Skip empty input
+        // Remove newline character
+        line[strcspn(line, "\n")] = 0;
 
-        // Exit condition
-        if (strcmp(trimmed, "exit") == 0) break;
+        if (strcmp(line, "exit") == 0) {
+            free(line);
+            break;
+        }
 
-        // Evaluate the command
-        evaluate(shell, trimmed);
+        // Pass the command line to `evaluate`
+        evaluate(shell, line);
     }
-
-    free(line);
-    exit_shell(shell);
-
-    // Print a final prompt without newline
-    printf("msh>");
-    return 0;
 }
 
+// Main entry point
+int main(int argc, char *argv[]) {
+    int max_jobs = 0, max_line = 0, max_history = 0;
 
+    // Parse command-line arguments
+    parse_args(argc, argv, &max_jobs, &max_line, &max_history);
 
+    // Initialize shell state
+    shell = alloc_shell(max_jobs, max_line, max_history);
+
+    // Start REPL loop
+    repl_loop(shell);
+
+    // Clean up
+    exit_shell(shell);
+    return 0;
+}
