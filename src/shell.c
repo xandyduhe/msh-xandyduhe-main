@@ -42,63 +42,57 @@ int white_space(const char *str) {
     return 1;
 }
 
+
+
+
 char *parse_tok(char *line, int *job_type) {
     static char *current = NULL;
 
-    // Initialize the static pointer
+    // Initialize on first call with new line
     if (line != NULL) {
         current = line;
     }
 
-    // If no more commands to parse, return NULL
+    // Return NULL if no more input or empty string
     if (!current || *current == '\0') {
         *job_type = -1;
         return NULL;
     }
 
-    // Skip over leading whitespace (but preserve internal whitespace)
+    // Save start position (preserving leading whitespace)
     char *start = current;
-    while (*start && isspace((unsigned char)*start)) {
-        start++;
-    }
 
-    if (*start == '\0') { // End of the line
-        *job_type = -1;
-        return NULL;
-    }
-
-    // Find the end of the job
+    // Find the end of the command (stop at ; or &)
     char *end = start;
     while (*end && *end != ';' && *end != '&') {
         end++;
     }
 
-    // Save the delimiter (if any)
-    char delimiter = *end;
-    if (delimiter == ';') {
-        *job_type = 1; // Foreground job
-    } else if (delimiter == '&') {
-        *job_type = 0; // Background job
+    // Set job type based on delimiter
+    if (*end == '&') {
+        *job_type = 0;  // Background job
+        *end = '\0';
+        current = end + 1;
+    } else if (*end == ';') {
+        *job_type = 1;  // Foreground job
+        *end = '\0';
+        current = end + 1;
     } else {
-        *job_type = 1; // Default to foreground job
+        *job_type = 1;  // Default to foreground for last command
+        current = end;  // Point to the null terminator
     }
 
-    // Null-terminate the current job and advance the pointer
-    if (*end) {
-        *end++ = '\0';
+    // If the remaining string is only whitespace, return NULL
+    if (white_space(start)) {
+        *job_type = -1;
+        return NULL;
     }
-
-    // Trim trailing whitespace (for this specific job)
-    char *trim_end = end - 2; // Move one step back to the last valid character
-    while (trim_end > start && isspace((unsigned char)*trim_end)) {
-        *trim_end-- = '\0';
-    }
-
-    // Update the static pointer for the next call
-    current = end;
 
     return start;
 }
+
+
+
 
 
 
