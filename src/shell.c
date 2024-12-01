@@ -43,57 +43,55 @@ int white_space(const char *str) {
 }
 
 
-
-
 char *parse_tok(char *line, int *job_type) {
     static char *current = NULL;
 
-    // Initialize on first call with new line
     if (line != NULL) {
         current = line;
     }
 
-    // Return NULL if no more input or empty string
     if (!current || *current == '\0') {
         *job_type = -1;
         return NULL;
     }
 
-    // Save start position (preserving leading whitespace)
-    char *start = current;
-
-    // Find the end of the command (stop at ; or &)
-    char *end = start;
-    while (*end && *end != ';' && *end != '&') {
-        end++;
+    // Skip over any leading whitespace
+    while (isspace((unsigned char)*current)) {
+        current++;
     }
 
-    // Set job type based on delimiter
-    if (*end == '&') {
-        *job_type = 0;  // Background job
-        *end = '\0';
-        current = end + 1;
-    } else if (*end == ';') {
-        *job_type = 1;  // Foreground job
-        *end = '\0';
-        current = end + 1;
-    } else {
-        *job_type = 1;  // Default to foreground for last command
-        current = end;  // Point to the null terminator
-    }
-
-    // If the remaining string is only whitespace, return NULL
-    if (white_space(start)) {
+    if (*current == '\0') { // End of the line
         *job_type = -1;
         return NULL;
     }
 
+    // Find the start of the job
+    char *start = current;
+
+    // Move until a delimiter or end of the line
+    while (*current && *current != ';' && *current != '&') {
+        current++;
+    }
+
+    // Determine job type based on the delimiter
+    if (*current == ';') {
+        *job_type = 1; // Foreground job
+        *current++ = '\0'; // Null-terminate and move past the delimiter
+    } else if (*current == '&') {
+        *job_type = 0; // Background job
+        *current++ = '\0'; // Null-terminate and move past the delimiter
+    } else {
+        *job_type = 1; // Default to foreground job
+    }
+
+    // Trim trailing whitespace from the job
+    char *end = current - 1;
+    while (end > start && isspace((unsigned char)*end)) {
+        *end-- = '\0';
+    }
+
     return start;
 }
-
-
-
-
 
 
 char **separate_args(char *line, int *argc, bool *is_builtin) {

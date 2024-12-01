@@ -2,6 +2,11 @@
 #define _SHELL_H_
 
 #include <stdbool.h>
+
+// Default values for shell configuration
+#define DEFAULT_MAX_JOBS 16
+#define DEFAULT_MAX_LINE 1024
+#define DEFAULT_MAX_HISTORY 10
  
 // Represents the state of the shell 
 typedef struct msh {
