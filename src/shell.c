@@ -128,7 +128,7 @@ char **separate_args(char *line, int *argc, bool *is_builtin) {
 
 // executes command 
 int evaluate(msh_t *shell, char *line) {
-    // Trim leading and trailing whitespace
+    // Trim leading whitespace
     while (*line == ' ' || *line == '\t') line++;
     if (*line == '\0') return 0; // Ignore empty input
 
@@ -149,6 +149,7 @@ int evaluate(msh_t *shell, char *line) {
             // Handle the `exit` command
             if (argc > 0 && strcmp(argv[0], "exit") == 0) {
                 free(argv);
+                argv = NULL; // Safeguard: Prevent double free
                 return 1; // Signal termination
             }
 
@@ -157,7 +158,9 @@ int evaluate(msh_t *shell, char *line) {
                 printf("argv[%d]=%s\n", i, argv[i]);
             }
             printf("argc=%d\n", argc);
+
             free(argv);
+            argv = NULL; // Safeguard: Prevent double free
         }
 
         job = parse_tok(NULL, &job_type);
@@ -165,6 +168,7 @@ int evaluate(msh_t *shell, char *line) {
 
     return 0;
 }
+
 
 
 

@@ -66,19 +66,31 @@ void repl_loop(msh_t *shell) {
         ssize_t nread = getline(&line, &len, stdin);
         if (nread == -1) {
             free(line);
+            line = NULL; // Safeguard: Prevent invalid free
             break; // EOF or error
         }
 
         // Remove newline character
         line[strcspn(line, "\n")] = '\0';
 
+        // Check line length before processing
+        if (strlen(line) > shell->max_line) {
+            printf("error: reached the maximum line limit\n");
+            continue; // Skip this input
+        }
+
         // Evaluate the command line
         if (evaluate(shell, line)) {
-            free(line); // Free the line before breaking
+            free(line);
+            line = NULL; // Safeguard: Prevent invalid free
             break;
         }
     }
+
+    free(line); // Free any remaining buffer
+    line = NULL; // Safeguard: Prevent invalid free
 }
+
 
 
 
