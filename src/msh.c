@@ -6,53 +6,47 @@
 
 // Parse command-line arguments
 void parse_args(int argc, char *argv[], int *max_jobs, int *max_line, int *max_history) {
-    // Set default values for max_jobs, max_line, and max_history
     *max_jobs = 0;
     *max_line = 0;
     *max_history = 0;
 
     int opt;
+    int invalid_usage = 0;
+
     while ((opt = getopt(argc, argv, "s:j:l:")) != -1) {
         switch (opt) {
             case 's':
-                // Check if optarg is a valid positive integer
                 if (sscanf(optarg, "%d", max_history) != 1 || *max_history <= 0) {
-                    fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
-                    fflush(stderr);
-                    exit(1);
+                    invalid_usage = 1;
                 }
                 break;
             case 'j':
-                // Check if optarg is a valid positive integer
                 if (sscanf(optarg, "%d", max_jobs) != 1 || *max_jobs <= 0) {
-                    fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
-                    fflush(stderr);
-                    exit(1);
+                    invalid_usage = 1;
                 }
                 break;
             case 'l':
-                // Check if optarg is a valid positive integer
                 if (sscanf(optarg, "%d", max_line) != 1 || *max_line <= 0) {
-                    fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
-                    fflush(stderr);
-                    exit(1);
+                    invalid_usage = 1;
                 }
                 break;
             default:
-                // Print usage message for any invalid options
-                fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
-                fflush(stderr);
-                exit(1);
+                invalid_usage = 1;
         }
+
+        // If an invalid usage flag is set, terminate further checks early
+        if (invalid_usage) break;
     }
 
-    // Handle the case where there are unexpected extra arguments
-    if (optind < argc) {
+    // Final check for invalid usage
+    if (invalid_usage || optind < argc) {
         fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
         fflush(stderr);
         exit(1);
     }
 }
+
+
 
 
 
