@@ -8,15 +8,12 @@
 #include <unistd.h>    // For fork, execve
 #include <sys/types.h> // For pid_t
 #include <sys/wait.h>  // For waitpid
+#include <errno.h>     // For perror
 
 msh_t *shell = NULL;
 
 //  initializes shell 
 msh_t *alloc_shell(int max_jobs, int max_line, int max_history) {
-    const int DEFAULT_MAX_JOBS = 16;
-    const int DEFAULT_MAX_LINE = 1024;
-    const int DEFAULT_MAX_HISTORY = 10;
-
     if (max_jobs == 0) max_jobs = DEFAULT_MAX_JOBS;
     if (max_line == 0) max_line = DEFAULT_MAX_LINE;
     if (max_history == 0) max_history = DEFAULT_MAX_HISTORY;
@@ -28,7 +25,6 @@ msh_t *alloc_shell(int max_jobs, int max_line, int max_history) {
     shell_state->max_line = max_line;
     shell_state->max_history = max_history;
 
-    // Allocate memory for the jobs array
     shell_state->jobs = calloc(max_jobs, sizeof(job_t));
     if (!shell_state->jobs) {
         free(shell_state);
@@ -119,7 +115,10 @@ char **separate_args(char *line, int *argc, bool *is_builtin) {
         if (*argc >= capacity) {
             capacity *= 2;
             argv = realloc(argv, capacity * sizeof(char *));
-            if (!argv) return NULL;
+            if (!argv) {
+                for (int i = 0; i < *argc; i++) free(argv[i]);
+                return NULL;
+            }
         }
         argv[(*argc)++] = token;
         token = strtok(NULL, " \t");
@@ -150,13 +149,17 @@ int evaluate(msh_t *shell, char *line) {
 
         if (argv) {
             pid_t pid = fork();
+            if (pid == -1) {
+                perror("fork");
+                free(argv);
+                continue;
+            }
+
             if (pid == 0) {
-                // In child process
                 execve(argv[0], argv, NULL);
                 perror("execve");
                 exit(EXIT_FAILURE);
             } else if (pid > 0) {
-                // In parent process
                 if (job_type == FOREGROUND) {
                     add_job(shell->jobs, shell->max_jobs, pid, FOREGROUND, job);
                     int status;
@@ -165,13 +168,9 @@ int evaluate(msh_t *shell, char *line) {
                 } else if (job_type == BACKGROUND) {
                     add_job(shell->jobs, shell->max_jobs, pid, BACKGROUND, job);
                 }
-            } else {
-                perror("fork");
             }
-
             free(argv);
         }
-
         job = parse_tok(NULL, &job_type);
     }
 

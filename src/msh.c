@@ -5,6 +5,7 @@
 #include "shell.h"
 #include <signal.h>
 #include "job.h"
+#include <sys/wait.h>
 
 void print_usage_and_exit() {
     fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
@@ -70,37 +71,23 @@ void repl_loop(msh_t *shell) {
         printf("msh> ");
         ssize_t nread = getline(&line, &len, stdin);
 
-        if (nread == -1) {
-            free(line);
-            break; // EOF or error
-        }
+        if (nread == -1) break;
 
-        // Remove newline character
-        line[strcspn(line, "\n")] = '\0';
+        line[strcspn(line, "\n")] = '\0'; // Remove newline
 
-        // Ignore empty lines
-        if (strlen(line) == 0) {
-            continue;
-        }
+        if (strlen(line) == 0) continue;
+        if (strcmp(line, "exit") == 0) break;
 
-        // Handle "exit" command
-        if (strcmp(line, "exit") == 0) {
-            free(line);
-            break;
-        }
-
-        // Evaluate the command line
         evaluate(shell, line);
     }
 
     free(line);
 }
 
+
 void handle_sigchld(int sig) {
     int status;
     pid_t pid;
-
-    // Reap all terminated background jobs
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
         delete_job(shell->jobs, shell->max_jobs, pid);
     }
@@ -112,7 +99,6 @@ void setup_signal_handlers() {
     sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
     sigaction(SIGCHLD, &sa, NULL);
 }
-
 
 
 int main(int argc, char *argv[]) {
