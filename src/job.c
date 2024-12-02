@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+// testeing 
 bool add_job(job_t *jobs, int max_jobs, pid_t pid, job_state_t state, const char *cmd_line) {
     for (int i = 0; i < max_jobs; i++) {
         if (jobs[i].state == UNDEFINED) {
