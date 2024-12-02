@@ -5,29 +5,29 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <ctype.h> // issue with parsing and whitespace 
-#include <unistd.h>    // For fork, execve
-#include <sys/types.h> // For pid_t
-#include <sys/wait.h>  // For waitpid
-#include <errno.h>     // For perror
+#include <unistd.h>    // for fork, execve
+#include <sys/types.h> // for pid_t
+#include <sys/wait.h>  // for waitpid
+#include <errno.h>     // for perror
 
 msh_t *shell = NULL;
 
-//  initializes shell 
+// initializes shell
 msh_t *alloc_shell(int max_jobs, int max_line, int max_history) {
     if (max_jobs == 0) max_jobs = DEFAULT_MAX_JOBS;
     if (max_line == 0) max_line = DEFAULT_MAX_LINE;
     if (max_history == 0) max_history = DEFAULT_MAX_HISTORY;
 
-    msh_t *shell_state = malloc(sizeof(msh_t));
-    if (!shell_state) return NULL;
+    msh_t *shell_state = malloc(sizeof(msh_t)); // allocate memory for shell state
+    if (!shell_state) return NULL; // return null if memory allocation fails
 
     shell_state->max_jobs = max_jobs;
     shell_state->max_line = max_line;
     shell_state->max_history = max_history;
 
-    shell_state->jobs = calloc(max_jobs, sizeof(job_t));
+    shell_state->jobs = calloc(max_jobs, sizeof(job_t)); // allocate memory for jobs
     if (!shell_state->jobs) {
-        free(shell_state);
+        free(shell_state); // free shell state if job allocation fails
         return NULL;
     }
 
@@ -37,158 +37,147 @@ msh_t *alloc_shell(int max_jobs, int max_line, int max_history) {
 // parses commands with &, ;
 static char *current_line = NULL;
 
-// check if string has ONLY whitespace
+// check if string has only whitespace
 int white_space(const char *str) {
     while (*str) {
-        if (!isspace((unsigned char)*str)) return 0;
+        if (!isspace((unsigned char)*str)) return 0; // return 0 if non-whitespace character found
         str++;
     }
-    return 1;
+    return 1; // return 1 if string contains only whitespace
 }
 
-// Tokenizes the command line into individual jobs
+// tokenizes command line into individual jobs
 char *parse_tok(char *line, int *job_type) {
     static char *current = NULL;
 
     if (line != NULL) {
-        current = line;
+        current = line; // set current to line if line is provided
     }
 
-    if (!current || *current == '\0') {
+    if (!current || *current == '\0') { // check if current is null or empty
+        *job_type = -1; // set job type to -1 if no job
+        return NULL;
+    }
+
+    while (isspace((unsigned char)*current)) { // skip leading whitespace
+        current++;
+    }
+
+    if (*current == '\0') { // check if end of line is reached
         *job_type = -1;
         return NULL;
     }
 
-    while (isspace((unsigned char)*current)) {
+    char *start = current; // mark start of job
+
+    while (*current && *current != ';' && *current != '&') { // parse until ';' or '&'
         current++;
     }
 
-    if (*current == '\0') {
-        *job_type = -1;
-        return NULL;
-    }
-
-    char *start = current;
-
-    while (*current && *current != ';' && *current != '&') {
-        current++;
-    }
-
-    if (*current == ';') {
+    if (*current == ';') { // set job type to foreground if ';' found
         *job_type = FOREGROUND;
-        *current++ = '\0';
-    } else if (*current == '&') {
+        *current++ = '\0'; // terminate current job
+    } else if (*current == '&') { // set job type to background if '&' found
         *job_type = BACKGROUND;
-        *current++ = '\0';
+        *current++ = '\0'; // terminate current job
     } else {
-        *job_type = FOREGROUND;
+        *job_type = FOREGROUND; // set job type to foreground if no delimiter found
     }
 
     char *end = current - 1;
-    while (end > start && isspace((unsigned char)*end)) {
+    while (end > start && isspace((unsigned char)*end)) { // remove trailing whitespace
         *end-- = '\0';
     }
 
-    return start;
+    return start; // return parsed job
 }
 
-
-
-
-
-
-
-// Separates a job into arguments and identifies built-in commands
+// separates job into arguments and identifies built-in commands
 char **separate_args(char *line, int *argc, bool *is_builtin) {
-    if (!line || !*line) {
+    if (!line || !*line) { // check if line is null or empty
         *argc = 0;
         return NULL;
     }
 
     int capacity = 10;
-    char **argv = malloc(capacity * sizeof(char *));
-    if (!argv) return NULL;
+    char **argv = malloc(capacity * sizeof(char *)); // allocate memory for arguments
+    if (!argv) return NULL; // return null if memory allocation fails
 
     *argc = 0;
-    char *token = strtok(line, " \t");
+    char *token = strtok(line, " \t"); // tokenize line by whitespace
     while (token) {
-        if (*argc >= capacity) {
+        if (*argc >= capacity) { // double capacity if more space needed
             capacity *= 2;
-            argv = realloc(argv, capacity * sizeof(char *));
+            argv = realloc(argv, capacity * sizeof(char *)); // reallocate memory for arguments
             if (!argv) {
-                for (int i = 0; i < *argc; i++) free(argv[i]);
+                for (int i = 0; i < *argc; i++) free(argv[i]); // free allocated arguments if reallocation fails
                 return NULL;
             }
         }
-        argv[(*argc)++] = token;
-        token = strtok(NULL, " \t");
+        argv[(*argc)++] = token; // add token to argument list
+        token = strtok(NULL, " \t"); // get next token
     }
 
-    argv[*argc] = NULL;
-    *is_builtin = false;
+    argv[*argc] = NULL; // terminate argument list
+    *is_builtin = false; // set built-in flag to false
     return argv;
 }
 
-
-
-
-// executes command 
+// executes command
 int evaluate(msh_t *shell, char *line) {
-    if (strlen(line) > shell->max_line) {
+    if (strlen(line) > shell->max_line) { // check if line exceeds max length
         fprintf(stderr, "error: reached the maximum line limit\n");
         return 0;
     }
 
     int job_type;
-    char *job = parse_tok(line, &job_type);
+    char *job = parse_tok(line, &job_type); // parse line into jobs
 
-    while (job && strlen(job) > 0) {
+    while (job && strlen(job) > 0) { // iterate over jobs
         int argc;
         bool is_builtin;
-        char **argv = separate_args(job, &argc, &is_builtin);
+        char **argv = separate_args(job, &argc, &is_builtin); // separate job into arguments
 
         if (argv) {
-            pid_t pid = fork();
-            if (pid == -1) {
+            pid_t pid = fork(); // create child process
+            if (pid == -1) { // check if fork failed
                 perror("fork");
                 free(argv);
                 continue;
             }
 
-            if (pid == 0) {
-                execve(argv[0], argv, NULL);
-                perror("execve");
+            if (pid == 0) { // child process
+                execve(argv[0], argv, NULL); // execute command
+                perror("execve"); // print error if execve fails
                 exit(EXIT_FAILURE);
-            } else if (pid > 0) {
-                if (job_type == FOREGROUND) {
+            } else if (pid > 0) { // parent process
+                if (job_type == FOREGROUND) { // wait for foreground job to finish
                     add_job(shell->jobs, shell->max_jobs, pid, FOREGROUND, job);
                     int status;
                     waitpid(pid, &status, 0);
                     delete_job(shell->jobs, shell->max_jobs, pid);
-                } else if (job_type == BACKGROUND) {
+                } else if (job_type == BACKGROUND) { // add background job
                     add_job(shell->jobs, shell->max_jobs, pid, BACKGROUND, job);
                 }
             }
-            free(argv);
+            free(argv); // free argument list
         }
-        job = parse_tok(NULL, &job_type);
+        job = parse_tok(NULL, &job_type); // parse next job
     }
 
     return 0;
 }
 
-
-
 // free shell memory
 void exit_shell(msh_t *shell) {
-    for (int i = 0; i < shell->max_jobs; i++) {
-        if (shell->jobs[i].state == BACKGROUND) {
+    for (int i = 0; i < shell->max_jobs; i++) { // iterate over jobs
+        if (shell->jobs[i].state == BACKGROUND) { // wait for background jobs to finish
             int status;
             waitpid(shell->jobs[i].pid, &status, 0);
             delete_job(shell->jobs, shell->max_jobs, shell->jobs[i].pid);
         }
     }
 
-    free_jobs(shell->jobs, shell->max_jobs);
-    free(shell);
+    free_jobs(shell->jobs, shell->max_jobs); // free job list
+    free(shell); // free shell state
 }

@@ -13,8 +13,14 @@ typedef struct job {
     int jid;            // The job number for this job
 } job_t;
 
+// adds job to job list
 bool add_job(job_t *jobs, int max_jobs, pid_t pid, job_state_t state, const char *cmd_line);
-bool delete_job(job_t *jobs, int max_jobs, pid_t pid); // Updated with max_jobs
+
+// deletes job from job list
+bool delete_job(job_t *jobs, int max_jobs, pid_t pid); // updated with max_jobs
+
+// frees memory allocated for jobs
 void free_jobs(job_t *jobs, int max_jobs);
 
 #endif
+
