@@ -7,9 +7,13 @@
 #include "job.h"
 #include <sys/wait.h>
 
+// makes ure before you exit the shell to check for background jobs 
+// exit shell function 
+// before deac=llocate wait in a loop 
+
 // print usage message and exit program
 void print_usage_and_exit() {
-    fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
+    fprintf(stdout, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
     fflush(stderr); // ensure immediate flushing to stderr
     exit(1);
 }
