@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <ctype.h> // issue with parsing and whitespace 
+#include <unistd.h>    // For fork, execve
+#include <sys/types.h> // For pid_t
+#include <sys/wait.h>  // For waitpid
 
 msh_t *shell = NULL;
 
@@ -24,7 +27,7 @@ msh_t *alloc_shell(int max_jobs, int max_line, int max_history) {
     shell_state->max_jobs = max_jobs;
     shell_state->max_line = max_line;
     shell_state->max_history = max_history;
-    shell_state->jobs = calloc(max_jobs, sizeof(job_t)); // Allocate jobs array
+    shell_state->jobs = calloc(max_jobs, sizeof(job_t));
 
     return shell_state;
 }
@@ -41,9 +44,6 @@ int white_space(const char *str) {
     }
     return 1;
 }
-
-
-
 
 char *parse_tok(char *line, int *job_type) {
     static char *current = NULL;
@@ -139,17 +139,15 @@ int evaluate(msh_t *shell, char *line) {
         if (argv) {
             pid_t pid = fork();
             if (pid == 0) {
-                // Child process
                 execve(argv[0], argv, NULL);
-                perror("execve"); // Only reached if execve fails
-                exit(1);
+                perror("execve");
+                exit(EXIT_FAILURE);
             } else if (pid > 0) {
-                // Parent process
                 if (job_type == FOREGROUND) {
                     add_job(shell->jobs, shell->max_jobs, pid, FOREGROUND, job);
                     int status;
-                    waitpid(pid, &status, 0); // Wait for foreground job
-                    delete_job(shell->jobs, pid);
+                    waitpid(pid, &status, 0);
+                    delete_job(shell->jobs, shell->max_jobs, pid);
                 } else if (job_type == BACKGROUND) {
                     add_job(shell->jobs, shell->max_jobs, pid, BACKGROUND, job);
                 }
@@ -163,19 +161,10 @@ int evaluate(msh_t *shell, char *line) {
         job = parse_tok(NULL, &job_type);
     }
 
-    // Cleanup completed background jobs
-    for (int i = 0; i < shell->max_jobs; i++) {
-        if (shell->jobs[i].state == BACKGROUND) {
-            int status;
-            pid_t term_pid = waitpid(shell->jobs[i].pid, &status, WNOHANG);
-            if (term_pid > 0) {
-                delete_job(shell->jobs, term_pid);
-            }
-        }
-    }
-
     return 0;
 }
+
+
 
 
 // free shell memory
@@ -184,10 +173,9 @@ void exit_shell(msh_t *shell) {
         if (shell->jobs[i].state == BACKGROUND) {
             int status;
             waitpid(shell->jobs[i].pid, &status, 0);
-            delete_job(shell->jobs, shell->jobs[i].pid);
+            delete_job(shell->jobs, shell->max_jobs, shell->jobs[i].pid);
         }
     }
-
     free_jobs(shell->jobs, shell->max_jobs);
     free(shell);
 }

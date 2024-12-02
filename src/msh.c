@@ -3,6 +3,7 @@
 #include <string.h>
 #include <getopt.h>
 #include "shell.h"
+#include <signal.h>
 
 
 void print_usage_and_exit() {
@@ -95,28 +96,38 @@ void repl_loop(msh_t *shell) {
     line = NULL; // Safeguard: Prevent invalid free
 }
 
+void handle_sigchld(int sig) {
+    int status;
+    pid_t pid;
+
+    // Wait for all terminated background jobs
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        delete_job(shell->jobs, shell->max_jobs, pid);
+    }
+}
+
+void setup_signal_handlers() {
+    struct sigaction sa;
+    sa.sa_handler = handle_sigchld;
+    sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+    sigaction(SIGCHLD, &sa, NULL);
+}
 
 
-
-// Main entry point
 int main(int argc, char *argv[]) {
     int max_jobs = 0, max_line = 0, max_history = 0;
 
-    // Parse command-line arguments
     parse_args(argc, argv, &max_jobs, &max_line, &max_history);
 
-    // Initialize shell state
     shell = alloc_shell(max_jobs, max_line, max_history);
-
-    if (shell == NULL) {
+    if (!shell) {
         fprintf(stderr, "error: unable to allocate memory for shell\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
-    // Start REPL loop
+    setup_signal_handlers(); // Setup signal handling for background jobs
     repl_loop(shell);
 
-    // Clean up
     exit_shell(shell);
     return 0;
 }

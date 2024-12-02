@@ -2,6 +2,7 @@
 #define _SHELL_H_
 
 #include <stdbool.h>
+#include "job.h"
 
 // Default values for shell configuration
 #define DEFAULT_MAX_JOBS 16

@@ -1,7 +1,6 @@
 #include "job.h"
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 bool add_job(job_t *jobs, int max_jobs, pid_t pid, job_state_t state, const char *cmd_line) {
     for (int i = 0; i < max_jobs; i++) {
@@ -16,7 +15,7 @@ bool add_job(job_t *jobs, int max_jobs, pid_t pid, job_state_t state, const char
     return false; // No free slot
 }
 
-bool delete_job(job_t *jobs, pid_t pid) {
+bool delete_job(job_t *jobs, int max_jobs, pid_t pid) {
     for (int i = 0; i < max_jobs; i++) {
         if (jobs[i].pid == pid) {
             free(jobs[i].cmd_line);
