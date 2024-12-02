@@ -14,7 +14,8 @@ typedef struct msh {
     int max_jobs; // max jobs allowed
     int max_line;  // max characters/ line
     int max_history; // maz commands in history
-}msh_t;
+    job_t *jobs; // Array of jobs
+} msh_t;
 
 
 extern msh_t *shell;

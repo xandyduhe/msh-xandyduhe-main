@@ -4,57 +4,61 @@
 #include <getopt.h>
 #include "shell.h"
 
+
+void print_usage_and_exit() {
+    fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
+    fflush(stderr); // Ensure immediate flushing to stderr
+    exit(1);
+}
+
 // Parse command-line arguments
 void parse_args(int argc, char *argv[], int *max_jobs, int *max_line, int *max_history) {
-    // Set default values for max_jobs, max_line, and max_history
     *max_jobs = 0;
     *max_line = 0;
     *max_history = 0;
 
     int opt;
-    while ((opt = getopt(argc, argv, "s:j:l:")) != -1) {
+    opterr = 0; // Disable getopt's automatic error messages
+
+    // Parse the arguments using getopt()
+    while ((opt = getopt(argc, argv, ":s:j:l:")) != -1) {
         switch (opt) {
             case 's':
-                // Check if optarg is a valid positive integer
-                if (sscanf(optarg, "%d", max_history) != 1 || *max_history <= 0) {
-                    fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
-                    fflush(stderr);
-                    exit(1);
+                if (optarg == NULL || sscanf(optarg, "%d", max_history) != 1 || *max_history <= 0) {
+                    print_usage_and_exit(); // Exit immediately if invalid
                 }
                 break;
+
             case 'j':
-                // Check if optarg is a valid positive integer
-                if (sscanf(optarg, "%d", max_jobs) != 1 || *max_jobs <= 0) {
-                    fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
-                    fflush(stderr);
-                    exit(1);
+                if (optarg == NULL || sscanf(optarg, "%d", max_jobs) != 1 || *max_jobs <= 0) {
+                    print_usage_and_exit(); // Exit immediately if invalid
                 }
                 break;
+
             case 'l':
-                // Check if optarg is a valid positive integer
-                if (sscanf(optarg, "%d", max_line) != 1 || *max_line <= 0) {
-                    fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
-                    fflush(stderr);
-                    exit(1);
+                if (optarg == NULL || sscanf(optarg, "%d", max_line) != 1 || *max_line <= 0) {
+                    print_usage_and_exit(); // Exit immediately if invalid
                 }
                 break;
+
+            case ':': // Missing argument for an option
+                print_usage_and_exit(); // Exit immediately if invalid
+                break;
+
+            case '?': // Invalid option provided
+                print_usage_and_exit(); // Exit immediately if invalid
+                break;
+
             default:
-                // Print usage message for any invalid options
-                fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
-                fflush(stderr);
-                exit(1);
+                print_usage_and_exit(); // Exit immediately if invalid
         }
     }
 
-    // Handle the case where there are unexpected extra arguments
+    // Check for unexpected extra arguments after the options are parsed
     if (optind < argc) {
-        fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
-        fflush(stderr);
-        exit(1);
+        print_usage_and_exit(); // Exit immediately if extra arguments are found
     }
 }
-
-
 
 // Interactive REPL loop
 void repl_loop(msh_t *shell) {

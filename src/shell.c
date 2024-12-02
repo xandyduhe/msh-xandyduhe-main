@@ -18,17 +18,17 @@ msh_t *alloc_shell(int max_jobs, int max_line, int max_history) {
     if (max_line == 0) max_line = MAX_LINE;
     if (max_history == 0) max_history = MAX_HISTORY;
 
-    // allocate memory for shell 
     msh_t *shell_state = malloc(sizeof(msh_t));
     if (!shell_state) return NULL;
 
-    // limits
     shell_state->max_jobs = max_jobs;
     shell_state->max_line = max_line;
     shell_state->max_history = max_history;
+    shell_state->jobs = calloc(max_jobs, sizeof(job_t)); // Allocate jobs array
 
     return shell_state;
 }
+
 
 // parses commands with &, ;
 static char *current_line = NULL;
@@ -128,15 +128,6 @@ char **separate_args(char *line, int *argc, bool *is_builtin) {
 
 // executes command 
 int evaluate(msh_t *shell, char *line) {
-    // Trim leading whitespace
-    while (*line == ' ' || *line == '\t') line++;
-    if (*line == '\0') return 0; // Ignore empty input
-
-    if (strlen(line) > shell->max_line) {
-        fprintf(stderr, "error: reached the maximum line limit\n");
-        return 0;
-    }
-
     int job_type;
     char *job = parse_tok(line, &job_type);
 
@@ -146,36 +137,57 @@ int evaluate(msh_t *shell, char *line) {
         char **argv = separate_args(job, &argc, &is_builtin);
 
         if (argv) {
-            // Handle the `exit` command
-            if (argc > 0 && strcmp(argv[0], "exit") == 0) {
-                free(argv);
-                argv = NULL; // Safeguard: Prevent double free
-                return 1; // Signal termination
+            pid_t pid = fork();
+            if (pid == 0) {
+                // Child process
+                execve(argv[0], argv, NULL);
+                perror("execve"); // Only reached if execve fails
+                exit(1);
+            } else if (pid > 0) {
+                // Parent process
+                if (job_type == FOREGROUND) {
+                    add_job(shell->jobs, shell->max_jobs, pid, FOREGROUND, job);
+                    int status;
+                    waitpid(pid, &status, 0); // Wait for foreground job
+                    delete_job(shell->jobs, pid);
+                } else if (job_type == BACKGROUND) {
+                    add_job(shell->jobs, shell->max_jobs, pid, BACKGROUND, job);
+                }
+            } else {
+                perror("fork");
             }
-
-            // Print arguments and argc
-            for (int i = 0; i < argc; i++) {
-                printf("argv[%d]=%s\n", i, argv[i]);
-            }
-            printf("argc=%d\n", argc);
 
             free(argv);
-            argv = NULL; // Safeguard: Prevent double free
         }
 
         job = parse_tok(NULL, &job_type);
+    }
+
+    // Cleanup completed background jobs
+    for (int i = 0; i < shell->max_jobs; i++) {
+        if (shell->jobs[i].state == BACKGROUND) {
+            int status;
+            pid_t term_pid = waitpid(shell->jobs[i].pid, &status, WNOHANG);
+            if (term_pid > 0) {
+                delete_job(shell->jobs, term_pid);
+            }
+        }
     }
 
     return 0;
 }
 
 
-
-
-
 // free shell memory
 void exit_shell(msh_t *shell) {
-    if (shell) {
-        free(shell); 
+    for (int i = 0; i < shell->max_jobs; i++) {
+        if (shell->jobs[i].state == BACKGROUND) {
+            int status;
+            waitpid(shell->jobs[i].pid, &status, 0);
+            delete_job(shell->jobs, shell->jobs[i].pid);
+        }
     }
+
+    free_jobs(shell->jobs, shell->max_jobs);
+    free(shell);
 }
