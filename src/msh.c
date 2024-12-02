@@ -4,7 +4,7 @@
 #include <getopt.h>
 #include "shell.h"
 #include <signal.h>
-
+#include "job.h"
 
 void print_usage_and_exit() {
     fprintf(stderr, "usage: msh [-s NUMBER] [-j NUMBER] [-l NUMBER]\n");
@@ -67,40 +67,40 @@ void repl_loop(msh_t *shell) {
     size_t len = 0;
 
     while (1) {
-        printf("msh> "); // Print prompt
+        printf("msh> ");
         ssize_t nread = getline(&line, &len, stdin);
+
         if (nread == -1) {
             free(line);
-            line = NULL; // Safeguard: Prevent invalid free
             break; // EOF or error
         }
 
         // Remove newline character
         line[strcspn(line, "\n")] = '\0';
 
-        // Check line length before processing
-        if (strlen(line) > shell->max_line) {
-            printf("error: reached the maximum line limit\n");
-            continue; // Skip this input
+        // Ignore empty lines
+        if (strlen(line) == 0) {
+            continue;
+        }
+
+        // Handle "exit" command
+        if (strcmp(line, "exit") == 0) {
+            free(line);
+            break;
         }
 
         // Evaluate the command line
-        if (evaluate(shell, line)) {
-            free(line);
-            line = NULL; // Safeguard: Prevent invalid free
-            break;
-        }
+        evaluate(shell, line);
     }
 
-    free(line); // Free any remaining buffer
-    line = NULL; // Safeguard: Prevent invalid free
+    free(line);
 }
 
 void handle_sigchld(int sig) {
     int status;
     pid_t pid;
 
-    // Wait for all terminated background jobs
+    // Reap all terminated background jobs
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
         delete_job(shell->jobs, shell->max_jobs, pid);
     }
@@ -114,20 +114,27 @@ void setup_signal_handlers() {
 }
 
 
+
 int main(int argc, char *argv[]) {
     int max_jobs = 0, max_line = 0, max_history = 0;
 
+    // Parse command-line arguments (original implementation retained)
     parse_args(argc, argv, &max_jobs, &max_line, &max_history);
 
+    // Initialize shell state
     shell = alloc_shell(max_jobs, max_line, max_history);
     if (!shell) {
         fprintf(stderr, "error: unable to allocate memory for shell\n");
         exit(EXIT_FAILURE);
     }
 
-    setup_signal_handlers(); // Setup signal handling for background jobs
+    // Setup signal handlers
+    setup_signal_handlers();
+
+    // Run the REPL loop
     repl_loop(shell);
 
+    // Cleanup and exit
     exit_shell(shell);
     return 0;
 }

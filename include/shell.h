@@ -2,7 +2,7 @@
 #define _SHELL_H_
 
 #include <stdbool.h>
-#include "job.h"
+#include "job.h" // Include job definitions
 
 // Default values for shell configuration
 #define DEFAULT_MAX_JOBS 16
@@ -83,4 +83,4 @@ int white_space(const char *str); // Add this declaration
 */
 void exit_shell(msh_t *shell);
 
-#endif 
+#endif

@@ -7,12 +7,12 @@ bool add_job(job_t *jobs, int max_jobs, pid_t pid, job_state_t state, const char
         if (jobs[i].state == UNDEFINED) {
             jobs[i].pid = pid;
             jobs[i].state = state;
-            jobs[i].jid = i + 1; // Assign a unique job ID
-            jobs[i].cmd_line = strdup(cmd_line); // Duplicate the command line
+            jobs[i].jid = i + 1;
+            jobs[i].cmd_line = strdup(cmd_line);
             return true;
         }
     }
-    return false; // No free slot
+    return false;
 }
 
 bool delete_job(job_t *jobs, int max_jobs, pid_t pid) {
@@ -25,7 +25,7 @@ bool delete_job(job_t *jobs, int max_jobs, pid_t pid) {
             return true;
         }
     }
-    return false; // PID not found
+    return false;
 }
 
 void free_jobs(job_t *jobs, int max_jobs) {
