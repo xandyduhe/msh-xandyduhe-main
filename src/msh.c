@@ -70,7 +70,7 @@ void parse_args(int argc, char *argv[], int *max_jobs, int *max_line, int *max_h
     }
 }
 
-// interactive repl loop
+// repl loop 
 void repl_loop(msh_t *shell) {
     char *line = NULL;
     size_t len = 0;
@@ -79,18 +79,31 @@ void repl_loop(msh_t *shell) {
         printf("msh> ");
         ssize_t nread = getline(&line, &len, stdin);
 
-        if (nread == -1) break; // check if end of input is reached
+        if (nread == -1) break;
 
-        line[strcspn(line, "\n")] = '\0'; // remove newline character
+        line[strcspn(line, "\n")] = '\0'; // Remove newline
 
-        if (strlen(line) == 0) continue; // skip empty lines
-        if (strcmp(line, "exit") == 0) break; // exit repl if "exit" command is given
+        if (strlen(line) == 0) continue;
+        if (strcmp(line, "exit") == 0) break;
 
-        evaluate(shell, line); // evaluate command entered by user
+        evaluate(shell, line);
+
+        // Check for completed background jobs after each command
+        int status;
+        for (int i = 0; i < shell->max_jobs; i++) {
+            if (shell->jobs[i].state == BACKGROUND) {
+                pid_t term_pid = waitpid(shell->jobs[i].pid, &status, WNOHANG);
+                if (term_pid > 0) {
+                    printf("Background job (PID: %d) completed.\n", term_pid);
+                    delete_job(shell->jobs, shell->max_jobs, term_pid);
+                }
+            }
+        }
     }
 
-    free(line); // free memory allocated for line
+    free(line);
 }
+
 
 // handle sigchld signal
 void handle_sigchld(int sig) {
