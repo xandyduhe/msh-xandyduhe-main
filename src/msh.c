@@ -7,9 +7,9 @@
 #include "job.h"
 #include <sys/wait.h>
 
-// makes ure before you exit the shell to check for background jobs 
+// makes sure before you exit the shell to check for background jobs 
 // exit shell function 
-// before deac=llocate wait in a loop 
+// before deallocating wait in a loop 
 
 // print usage message and exit program
 void print_usage_and_exit() {
