@@ -7,6 +7,8 @@
 #include "job.h"
 #include <sys/wait.h>
 #include <unistd.h>  // For usleep
+#include "signal_handlers.h"
+
 // M2 
 // makes sure before you exit the shell to check for background jobs 
 // exit shell function 
@@ -124,6 +126,8 @@ void setup_signal_handlers() {
 }
 
 int main(int argc, char *argv[]) {
+    int max_jobs = 0, max_line = 0, max_history = 0;  // Declare variables here
+
     // Parse arguments
     parse_args(argc, argv, &max_jobs, &max_line, &max_history);
 
@@ -144,4 +148,5 @@ int main(int argc, char *argv[]) {
     exit_shell(shell);
     return 0;
 }
+
 

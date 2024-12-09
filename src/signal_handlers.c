@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdlib.h> // Include for exit()
 
 extern msh_t *shell; // Access the global shell state
 

@@ -13,6 +13,9 @@ typedef struct job {
     int jid;            // The job number for this job
 } job_t;
 
+job_t *get_job_by_pid(job_t *jobs, int max_jobs, pid_t pid);
+job_t *get_foreground_job(job_t *jobs, int max_jobs);
+
 // adds job to job list
 bool add_job(job_t *jobs, int max_jobs, pid_t pid, job_state_t state, const char *cmd_line);
 

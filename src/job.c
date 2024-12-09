@@ -30,6 +30,25 @@ bool delete_job(job_t *jobs, int max_jobs, pid_t pid) {
     return false; // return false if job not found
 }
 
+job_t *get_job_by_pid(job_t *jobs, int max_jobs, pid_t pid) {
+    for (int i = 0; i < max_jobs; i++) {
+        if (jobs[i].pid == pid) {
+            return &jobs[i];
+        }
+    }
+    return NULL;
+}
+
+job_t *get_foreground_job(job_t *jobs, int max_jobs) {
+    for (int i = 0; i < max_jobs; i++) {
+        if (jobs[i].state == FOREGROUND) {
+            return &jobs[i];
+        }
+    }
+    return NULL;
+}
+
+
 // frees memory allocated for jobs
 void free_jobs(job_t *jobs, int max_jobs) {
     for (int i = 0; i < max_jobs; i++) {
