@@ -7,7 +7,7 @@
 #include "job.h"
 #include <sys/wait.h>
 #include <unistd.h>  // For usleep
-
+// M2 
 // makes sure before you exit the shell to check for background jobs 
 // exit shell function 
 // before deallocating wait in a loop 
