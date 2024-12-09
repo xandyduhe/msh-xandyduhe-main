@@ -9,6 +9,7 @@
 #include <sys/types.h> // for pid_t
 #include <sys/wait.h>  // for waitpid
 #include <errno.h>     // for perror
+#include <signal.h>
 
 msh_t *shell = NULL;
 
@@ -30,6 +31,16 @@ msh_t *alloc_shell(int max_jobs, int max_line, int max_history) {
         free(shell_state); // free shell state if job allocation fails
         return NULL;
     }
+
+// Allocate history for the shell
+    shell_state->history = alloc_history(max_history);
+    if (!shell_state->history) {
+        free(shell_state->jobs);
+        free(shell_state);
+        return NULL;
+    }
+
+    initialize_signal_handlers(); // Set up signal handlers
 
     return shell_state;
 }
@@ -125,48 +136,125 @@ char **separate_args(char *line, int *argc, bool *is_builtin) {
 
 // executes command
 int evaluate(msh_t *shell, char *line) {
-    if (strlen(line) > shell->max_line) { // check if line exceeds max length
-        fprintf(stdout, "error: reached the maximum line limit\n");
-        return 0;
+    sigset_t mask, prev_mask;
+
+    // Block SIGCHLD before forking to prevent race conditions
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &mask, &prev_mask);
+
+    // Add command to history
+    if (strlen(line) > 0 && strcmp(line, "exit") != 0) {
+        add_line_history(shell->history, line);
     }
 
+    // Parse the job
     int job_type;
-    char *job = parse_tok(line, &job_type); // parse line into jobs
+    char *job = parse_tok(line, &job_type);
 
-    while (job && strlen(job) > 0) { // iterate over jobs
+    while (job && strlen(job) > 0) {
         int argc;
         bool is_builtin;
-        char **argv = separate_args(job, &argc, &is_builtin); // separate job into arguments
+        char **argv = separate_args(job, &argc, &is_builtin);
 
         if (argv) {
-            pid_t pid = fork(); // create child process
-            if (pid == -1) { // check if fork failed
-                perror("fork");
-                free(argv);
-                continue;
-            }
+            if (is_builtin) {
+                // Handle built-in commands
+                builtin_cmd(argv);
+            } else {
+                pid_t pid = fork();
+                if (pid == 0) {
+                    // Child process: Set up its own process group
+                    setpgid(0, 0);
+                    sigprocmask(SIG_SETMASK, &prev_mask, NULL); // Unblock signals
+                    if (execve(argv[0], argv, NULL) == -1) {
+                        perror("execve");
+                        exit(EXIT_FAILURE);
+                    }
+                } else if (pid > 0) {
+                    add_job(shell->jobs, shell->max_jobs, pid, job_type == BACKGROUND ? BACKGROUND : FOREGROUND, job);
 
-            if (pid == 0) { // child process
-                execve(argv[0], argv, NULL); // execute command
-                perror("execve"); // print error if execve fails
-                exit(EXIT_FAILURE);
-            } else if (pid > 0) { // parent process
-                if (job_type == FOREGROUND) { // wait for foreground job to finish
-                    add_job(shell->jobs, shell->max_jobs, pid, FOREGROUND, job);
-                    int status;
-                    waitpid(pid, &status, 0);
-                    delete_job(shell->jobs, shell->max_jobs, pid);
-                } else if (job_type == BACKGROUND) { // add background job
-                    add_job(shell->jobs, shell->max_jobs, pid, BACKGROUND, job);
+                    if (job_type == FOREGROUND) {
+                        waitfg(pid);
+                    }
+                } else {
+                    perror("fork");
                 }
             }
-            free(argv); // free argument list
+            free(argv);
         }
-        job = parse_tok(NULL, &job_type); // parse next job
+        job = parse_tok(NULL, &job_type);
     }
 
+    // Unblock SIGCHLD after adding job
+    sigprocmask(SIG_SETMASK, &prev_mask, NULL);
     return 0;
 }
+
+
+char *builtin_cmd(char **argv) {
+    if (strcmp(argv[0], "jobs") == 0) {
+        for (int i = 0; i < shell->max_jobs; i++) {
+            if (shell->jobs[i].state != UNDEFINED) {
+                printf("[%d] %d %s %s\n",
+                       shell->jobs[i].jid,
+                       shell->jobs[i].pid,
+                       shell->jobs[i].state == BACKGROUND ? "RUNNING" : "STOPPED",
+                       shell->jobs[i].cmd_line);
+            }
+        }
+        return NULL;
+    }
+
+    if (strcmp(argv[0], "history") == 0) {
+        print_history(shell->history);
+        return NULL;
+    }
+
+    if (argv[0][0] == '!' && isdigit(argv[0][1])) {
+        int index = atoi(&argv[0][1]);
+        char *cmd = find_line_history(shell->history, index);
+        if (cmd) {
+            printf("%s\n", cmd);
+            return cmd; // Re-run the command
+        } else {
+            fprintf(stderr, "error: history index out of range\n");
+        }
+    }
+
+    if (strcmp(argv[0], "bg") == 0 || strcmp(argv[0], "fg") == 0) {
+        if (argv[1][0] == '%') {
+            int jid = atoi(&argv[1][1]);
+            for (int i = 0; i < shell->max_jobs; i++) {
+                if (shell->jobs[i].jid == jid) {
+                    kill(-shell->jobs[i].pid, SIGCONT);
+                    if (strcmp(argv[0], "fg") == 0) {
+                        shell->jobs[i].state = FOREGROUND;
+                        waitfg(shell->jobs[i].pid);
+                    } else {
+                        shell->jobs[i].state = BACKGROUND;
+                    }
+                    return NULL;
+                }
+            }
+            fprintf(stderr, "error: job not found\n");
+        } else {
+            fprintf(stderr, "error: invalid job ID\n");
+        }
+    }
+
+    if (strcmp(argv[0], "kill") == 0 && argc == 3) {
+        int sig_num = atoi(argv[1]);
+        pid_t pid = atoi(argv[2]);
+        if (kill(pid, sig_num) == -1) {
+            perror("kill");
+        }
+        return NULL;
+    }
+
+    return NULL;
+}
+
 
 // free shell memory
 void exit_shell(msh_t *shell) {

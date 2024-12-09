@@ -124,25 +124,24 @@ void setup_signal_handlers() {
 }
 
 int main(int argc, char *argv[]) {
-    int max_jobs = 0, max_line = 0, max_history = 0;
-
-    // parse command-line arguments (original implementation retained)
+    // Parse arguments
     parse_args(argc, argv, &max_jobs, &max_line, &max_history);
 
-    // initialize shell state
+    // Initialize shell state
     shell = alloc_shell(max_jobs, max_line, max_history);
     if (!shell) {
-        fprintf(stdout, "error: unable to allocate memory for shell\n");
+        fprintf(stderr, "error: unable to allocate memory for shell\n");
         exit(EXIT_FAILURE);
     }
 
-    // setup signal handlers
-    setup_signal_handlers();
+    // Initialize signal handlers
+    initialize_signal_handlers();
 
-    // run repl loop
+    // Run the REPL loop
     repl_loop(shell);
 
-    // cleanup and exit
+    // Cleanup and exit
     exit_shell(shell);
     return 0;
 }
+
