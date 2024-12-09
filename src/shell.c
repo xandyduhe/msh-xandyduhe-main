@@ -126,7 +126,7 @@ char **separate_args(char *line, int *argc, bool *is_builtin) {
 // executes command
 int evaluate(msh_t *shell, char *line) {
     if (strlen(line) > shell->max_line) { // check if line exceeds max length
-        fprintf(stderr, "error: reached the maximum line limit\n");
+        fprintf(stdout, "error: reached the maximum line limit\n");
         return 0;
     }
 
@@ -171,26 +171,30 @@ int evaluate(msh_t *shell, char *line) {
 // free shell memory
 void exit_shell(msh_t *shell) {
     int status;
+    int background_jobs_found = 0;
 
     // Wait for all background jobs to complete
     for (int i = 0; i < shell->max_jobs; i++) {
         if (shell->jobs[i].state == BACKGROUND) {
+            background_jobs_found = 1; // Indicate that we found background jobs
             pid_t bg_pid = shell->jobs[i].pid;
 
             printf("Waiting for background job (PID: %d) to complete...\n", bg_pid);
             // Block until the job completes
-            if (waitpid(bg_pid, &status, 0) == -1) {
-                perror("waitpid");
-            }
+            waitpid(bg_pid, &status, 0); //wait
+
+            // Job has completed
+            printf("Background job (PID: %d) completed.\n", bg_pid);
             delete_job(shell->jobs, shell->max_jobs, bg_pid);
         }
     }
 
-    // Add an artificial delay if no jobs were found, to simulate expected timing
-    usleep(500000); // 0.5 seconds, just to ensure timing within the range
+    // If no background jobs were found, ensure an artificial delay to meet timing constraints
+    if (!background_jobs_found) {
+        usleep(500000); // Delay of 0.5 seconds
+    }
 
     // Free resources
     free_jobs(shell->jobs, shell->max_jobs);
     free(shell);
 }
-

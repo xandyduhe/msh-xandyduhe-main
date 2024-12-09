@@ -6,6 +6,7 @@
 #include <signal.h>
 #include "job.h"
 #include <sys/wait.h>
+#include <unistd.h>  // For usleep
 
 // makes sure before you exit the shell to check for background jobs 
 // exit shell function 
@@ -131,7 +132,7 @@ int main(int argc, char *argv[]) {
     // initialize shell state
     shell = alloc_shell(max_jobs, max_line, max_history);
     if (!shell) {
-        fprintf(stderr, "error: unable to allocate memory for shell\n");
+        fprintf(stdout, "error: unable to allocate memory for shell\n");
         exit(EXIT_FAILURE);
     }
 
